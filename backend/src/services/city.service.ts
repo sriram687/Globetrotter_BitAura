@@ -29,16 +29,24 @@ interface UpdateCityData extends Partial<Omit<CreateCityData, 'tripId'>> {
  * Add a city to a trip
  */
 export const addCity = async (userId: string, data: CreateCityData) => {
-  // Verify trip ownership
+  // Verify trip ownership or shared edit permission
   const trip = await prisma.trip.findUnique({
-    where: { id: data.tripId }
+    where: { id: data.tripId },
+    include: {
+      sharedWith: {
+        where: { userId }
+      }
+    }
   });
 
   if (!trip) {
     throw new Error('Trip not found');
   }
 
-  if (trip.userId !== userId) {
+  const isOwner = trip.userId === userId;
+  const hasEditPermission = trip.sharedWith.some(st => st.permission === 'EDIT');
+
+  if (!isOwner && !hasEditPermission) {
     throw new Error('Access denied');
   }
 
@@ -69,14 +77,22 @@ export const addCity = async (userId: string, data: CreateCityData) => {
 export const getTripCities = async (tripId: string, userId?: string) => {
   // Verify access
   const trip = await prisma.trip.findUnique({
-    where: { id: tripId }
+    where: { id: tripId },
+    include: {
+      sharedWith: userId ? {
+        where: { userId }
+      } : false
+    }
   });
 
   if (!trip) {
     throw new Error('Trip not found');
   }
 
-  if (!trip.isPublic && trip.userId !== userId) {
+  const isOwner = trip.userId === userId;
+  const isShared = trip.sharedWith && trip.sharedWith.length > 0;
+  
+  if (!trip.isPublic && !isOwner && !isShared) {
     throw new Error('Access denied');
   }
 
@@ -130,17 +146,28 @@ export const updateCity = async (
   userId: string,
   data: UpdateCityData
 ) => {
-  // Get city with trip
+  // Get city with trip and shared permissions
   const existing = await prisma.city.findUnique({
     where: { id: cityId },
-    include: { trip: true }
+    include: {
+      trip: {
+        include: {
+          sharedWith: {
+            where: { userId }
+          }
+        }
+      }
+    }
   });
 
   if (!existing) {
     throw new Error('City not found');
   }
 
-  if (existing.trip.userId !== userId) {
+  const isOwner = existing.trip.userId === userId;
+  const hasEditPermission = existing.trip.sharedWith.some(st => st.permission === 'EDIT');
+
+  if (!isOwner && !hasEditPermission) {
     throw new Error('Access denied');
   }
 
@@ -163,14 +190,25 @@ export const updateCity = async (
 export const deleteCity = async (cityId: string, userId: string) => {
   const existing = await prisma.city.findUnique({
     where: { id: cityId },
-    include: { trip: true }
+    include: {
+      trip: {
+        include: {
+          sharedWith: {
+            where: { userId }
+          }
+        }
+      }
+    }
   });
 
   if (!existing) {
     throw new Error('City not found');
   }
 
-  if (existing.trip.userId !== userId) {
+  const isOwner = existing.trip.userId === userId;
+  const hasEditPermission = existing.trip.sharedWith.some(st => st.permission === 'EDIT');
+
+  if (!isOwner && !hasEditPermission) {
     throw new Error('Access denied');
   }
 

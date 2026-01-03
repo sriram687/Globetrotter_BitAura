@@ -17,7 +17,20 @@ import './index.css';
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Dashboard = lazy(() => import('./pages/Dashboard.tsx'));
+const CreateTripPage = lazy(() => import('./pages/CreateTripPage'));
+const EditTripPage = lazy(() => import('./pages/EditTripPage'));
+const TripDetailsPage = lazy(() => import('./pages/TripDetailsPage'));
+const MyTripsPage = lazy(() => import('./pages/MyTripsPage'));
+const ItineraryBuilderPage = lazy(() => import('./pages/ItineraryBuilderPage'));
+const ItineraryViewPage = lazy(() => import('./pages/ItineraryViewPage'));
+const BudgetPage = lazy(() => import('./pages/BudgetPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const SharedItineraryPage = lazy(() => import('./pages/SharedItineraryPage'));
+const ExplorePage = lazy(() => import('./pages/ExplorePage'));
+const CalendarPage = lazy(() => import('./pages/CalendarPage'));
+const AIPlannerPage = lazy(() => import('./pages/AIPlannerPage'));
 
 // Protected Route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -129,10 +142,7 @@ const AnimatedRoutes: React.FC = () => {
             <ProtectedRoute>
               <MainLayout>
                 <PageWrapper>
-                  <div className="p-8 text-center">
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">My Trips</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Coming soon...</p>
-                  </div>
+                  <MyTripsPage />
                 </PageWrapper>
               </MainLayout>
             </ProtectedRoute>
@@ -144,10 +154,7 @@ const AnimatedRoutes: React.FC = () => {
             <ProtectedRoute>
               <MainLayout>
                 <PageWrapper>
-                  <div className="p-8 text-center">
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Create New Trip</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Coming soon...</p>
-                  </div>
+                  <CreateTripPage />
                 </PageWrapper>
               </MainLayout>
             </ProtectedRoute>
@@ -159,10 +166,55 @@ const AnimatedRoutes: React.FC = () => {
             <ProtectedRoute>
               <MainLayout>
                 <PageWrapper>
-                  <div className="p-8 text-center">
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Trip Details</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Coming soon...</p>
-                  </div>
+                  <TripDetailsPage />
+                </PageWrapper>
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/trips/:id/edit"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <PageWrapper>
+                  <EditTripPage />
+                </PageWrapper>
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/trips/:id/itinerary"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <PageWrapper>
+                  <ItineraryBuilderPage />
+                </PageWrapper>
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/trips/:id/view"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <PageWrapper>
+                  <ItineraryViewPage />
+                </PageWrapper>
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/trips/:id/budget"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <PageWrapper>
+                  <BudgetPage />
                 </PageWrapper>
               </MainLayout>
             </ProtectedRoute>
@@ -174,40 +226,19 @@ const AnimatedRoutes: React.FC = () => {
             <ProtectedRoute>
               <MainLayout>
                 <PageWrapper>
-                  <div className="p-8 text-center">
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Explore</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Coming soon...</p>
-                  </div>
+                  <ExplorePage />
                 </PageWrapper>
               </MainLayout>
             </ProtectedRoute>
           }
         />
         <Route
-          path="/calendar"
+          path="/trips/:id/calendar"
           element={
             <ProtectedRoute>
               <MainLayout>
                 <PageWrapper>
-                  <div className="p-8 text-center">
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Calendar</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Coming soon...</p>
-                  </div>
-                </PageWrapper>
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/budget"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <PageWrapper>
-                  <div className="p-8 text-center">
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Budget</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Coming soon...</p>
-                  </div>
+                  <CalendarPage />
                 </PageWrapper>
               </MainLayout>
             </ProtectedRoute>
@@ -219,13 +250,30 @@ const AnimatedRoutes: React.FC = () => {
             <ProtectedRoute>
               <MainLayout>
                 <PageWrapper>
-                  <div className="p-8 text-center">
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">AI Planner</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Coming soon...</p>
-                  </div>
+                  <AIPlannerPage />
                 </PageWrapper>
               </MainLayout>
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <PageWrapper>
+                  <AdminDashboardPage />
+                </PageWrapper>
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shared/:token"
+          element={
+            <PageWrapper>
+              <SharedItineraryPage />
+            </PageWrapper>
           }
         />
         <Route
@@ -234,10 +282,7 @@ const AnimatedRoutes: React.FC = () => {
             <ProtectedRoute>
               <MainLayout>
                 <PageWrapper>
-                  <div className="p-8 text-center">
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Profile</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Coming soon...</p>
-                  </div>
+                  <ProfilePage />
                 </PageWrapper>
               </MainLayout>
             </ProtectedRoute>
@@ -286,7 +331,12 @@ const AnimatedRoutes: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  const { isDark } = useThemeStore();
+  const { theme } = useThemeStore();
+
+  // Calculate isDark based on theme
+  const isDark = 
+    theme === 'dark' || 
+    (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   // Apply dark mode class to document
   useEffect(() => {
