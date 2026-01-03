@@ -1,0 +1,264 @@
+// Prisma Schema for GlobeTrotter Travel Planner
+// MongoDB Database with full relations
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// User Model - Core authentication and profile
+model User {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  email          String    @unique
+  password       String
+  firstName      String
+  lastName       String
+  avatar         String?
+  bio            String?
+  phone          String?
+  country        String?
+  preferences    Json?     // Travel preferences, notification settings
+  role           Role      @default(USER)
+  isVerified     Boolean   @default(false)
+  resetToken     String?
+  resetTokenExp  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  // Relations
+  trips          Trip[]
+  sharedTrips    SharedTrip[]
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// Trip Model - Main trip container
+model Trip {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  description   String?
+  coverImage    String?
+  startDate     DateTime
+  endDate       DateTime
+  status        TripStatus @default(PLANNING)
+  isPublic      Boolean   @default(false)
+  shareToken    String?   @unique // For public sharing
+  totalBudget   Float?
+  currency      String    @default("USD")
+  tags          String[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  userId        String    @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cities        City[]
+  budget        Budget?
+  sharedWith    SharedTrip[]
+  
+  @@index([userId])
+}
+
+enum TripStatus {
+  PLANNING
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+// City Model - Cities within a trip
+model City {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  country       String
+  countryCode   String?
+  latitude      Float?
+  longitude     Float?
+  image         String?
+  arrivalDate   DateTime
+  departureDate DateTime
+  order         Int       @default(0)
+  notes         String?
+  accommodation String?
+  transportMode String?   // How to get to this city
+  transportCost Float?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  tripId        String    @db.ObjectId
+  trip          Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  activities    Activity[]
+  
+  @@index([tripId])
+}
+
+// Activity Model - Activities within a city
+model Activity {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  description   String?
+  category      ActivityCategory
+  location      String?
+  address       String?
+  latitude      Float?
+  longitude     Float?
+  image         String?
+  date          DateTime
+  startTime     String?      // "09:00"
+  endTime       String?      // "12:00"
+  duration      Int?         // in minutes
+  cost          Float        @default(0)
+  currency      String       @default("USD")
+  isBooked      Boolean      @default(false)
+  bookingRef    String?
+  notes         String?
+  rating        Float?
+  order         Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Relations
+  cityId        String       @db.ObjectId
+  city          City         @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  
+  @@index([cityId])
+  @@index([date])
+}
+
+enum ActivityCategory {
+  SIGHTSEEING
+  FOOD
+  ADVENTURE
+  CULTURE
+  SHOPPING
+  NIGHTLIFE
+  RELAXATION
+  TRANSPORT
+  ACCOMMODATION
+  OTHER
+}
+
+// Budget Model - Trip budget tracking
+model Budget {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  totalBudget     Float
+  currency        String    @default("USD")
+  accommodation   Float     @default(0)
+  transportation  Float     @default(0)
+  food            Float     @default(0)
+  activities      Float     @default(0)
+  shopping        Float     @default(0)
+  emergency       Float     @default(0)
+  other           Float     @default(0)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  tripId          String    @unique @db.ObjectId
+  trip            Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  expenses        Expense[]
+}
+
+// Expense Model - Individual expense tracking
+model Expense {
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
+  amount        Float
+  currency      String          @default("USD")
+  category      ExpenseCategory
+  description   String?
+  date          DateTime
+  receipt       String?         // URL to receipt image
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  // Relations
+  budgetId      String          @db.ObjectId
+  budget        Budget          @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  
+  @@index([budgetId])
+  @@index([date])
+}
+
+enum ExpenseCategory {
+  ACCOMMODATION
+  TRANSPORTATION
+  FOOD
+  ACTIVITIES
+  SHOPPING
+  EMERGENCY
+  OTHER
+}
+
+// SharedTrip Model - For collaboration
+model SharedTrip {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  permission  Permission  @default(VIEW)
+  createdAt   DateTime    @default(now())
+  
+  // Relations
+  tripId      String      @db.ObjectId
+  trip        Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId      String      @db.ObjectId
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([tripId, userId])
+  @@index([tripId])
+  @@index([userId])
+}
+
+enum Permission {
+  VIEW
+  EDIT
+}
+
+// PopularDestination Model - For suggestions
+model PopularDestination {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  country       String
+  countryCode   String
+  description   String?
+  image         String?
+  latitude      Float
+  longitude     Float
+  costIndex     Int       @default(3) // 1-5 scale
+  popularity    Int       @default(0)
+  bestTimeToVisit String[]
+  tags          String[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([country])
+  @@index([popularity])
+}
+
+// ActivityTemplate Model - Pre-defined activities
+model ActivityTemplate {
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  description   String?
+  category      ActivityCategory
+  destination   String           // City name
+  country       String
+  avgCost       Float?
+  avgDuration   Int?             // in minutes
+  image         String?
+  rating        Float?
+  reviewCount   Int              @default(0)
+  tags          String[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  
+  @@index([destination])
+  @@index([category])
+}

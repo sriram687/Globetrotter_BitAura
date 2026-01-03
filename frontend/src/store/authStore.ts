@@ -1,0 +1,54 @@
+/**
+ * Auth Store
+ * Global authentication state using Zustand
+ */
+
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import type { User } from '../services/auth.service';
+
+interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  
+  // Actions
+  setAuth: (user: User, token: string) => void;
+  setUser: (user: User) => void;
+  setLoading: (loading: boolean) => void;
+  logout: () => void;
+}
+
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: true,
+      
+      setAuth: (user, token) => {
+        localStorage.setItem('token', token);
+        set({ user, token, isAuthenticated: true, isLoading: false });
+      },
+      
+      setUser: (user) => {
+        set({ user });
+      },
+      
+      setLoading: (loading) => {
+        set({ isLoading: loading });
+      },
+      
+      logout: () => {
+        localStorage.removeItem('token');
+        set({ user: null, token: null, isAuthenticated: false });
+      },
+    }),
+    {
+      name: 'auth-storage',
+      partialize: (state) => ({ user: state.user, token: state.token, isAuthenticated: state.isAuthenticated }),
+    }
+  )
+);
