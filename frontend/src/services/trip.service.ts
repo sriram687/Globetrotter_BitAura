@@ -30,6 +30,26 @@ export interface Trip {
     lastName: string;
     avatar?: string;
   };
+  isShared?: boolean;
+  sharedPermission?: 'VIEW' | 'EDIT';
+  sharedBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string;
+  };
+  sharedWith?: Array<{
+    id: string;
+    userId: string;
+    permission: 'VIEW' | 'EDIT';
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      avatar?: string;
+    };
+  }>;
   _count?: {
     cities: number;
   };
@@ -189,6 +209,30 @@ export const generateShareLink = async (id: string): Promise<ApiResponse<{ share
 // Get shared trip
 export const getSharedTrip = async (token: string): Promise<ApiResponse<Trip>> => {
   const response = await api.get<ApiResponse<Trip>>(`/trips/shared/${token}`);
+  return response.data;
+};
+
+// Share trip with user by email
+export const shareTripWithUser = async (
+  tripId: string,
+  email: string,
+  permission: 'VIEW' | 'EDIT' = 'VIEW'
+): Promise<ApiResponse<any>> => {
+  const response = await api.post<ApiResponse<any>>(`/trips/${tripId}/share-with-user`, {
+    email,
+    permission
+  });
+  return response.data;
+};
+
+// Remove shared access
+export const removeSharedAccess = async (
+  tripId: string,
+  userId: string
+): Promise<ApiResponse<{ message: string }>> => {
+  const response = await api.delete<ApiResponse<{ message: string }>>(
+    `/trips/${tripId}/share-with-user/${userId}`
+  );
   return response.data;
 };
 

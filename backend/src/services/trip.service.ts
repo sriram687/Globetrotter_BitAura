@@ -41,7 +41,7 @@ export const createTrip = async (userId: string, data: CreateTripData) => {
 };
 
 /**
- * Get all trips for a user
+ * Get all trips for a user (including shared trips)
  */
 export const getUserTrips = async (
   userId: string,
@@ -56,7 +56,8 @@ export const getUserTrips = async (
     where.status = status;
   }
 
-  const [trips, total] = await Promise.all([
+  // Get user's own trips
+  const [ownTrips, ownTotal] = await Promise.all([
     prisma.trip.findMany({
       where,
       skip,
@@ -76,13 +77,52 @@ export const getUserTrips = async (
     prisma.trip.count({ where })
   ]);
 
+  // Get shared trips
+  const sharedTrips = await prisma.sharedTrip.findMany({
+    where: { userId },
+    include: {
+      trip: {
+        include: {
+          cities: {
+            orderBy: { order: 'asc' },
+            take: 3
+          },
+          budget: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatar: true
+            }
+          },
+          _count: {
+            select: { cities: true }
+          }
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  // Combine trips
+  const allTrips = [
+    ...ownTrips,
+    ...sharedTrips.map(st => ({
+      ...st.trip,
+      isShared: true,
+      sharedPermission: st.permission,
+      sharedBy: st.trip.user
+    }))
+  ];
+
   return {
-    trips,
+    trips: allTrips,
     pagination: {
       page,
       limit,
-      total,
-      totalPages: Math.ceil(total / limit)
+      total: ownTotal + sharedTrips.length,
+      totalPages: Math.ceil((ownTotal + sharedTrips.length) / limit)
     }
   };
 };
@@ -116,6 +156,19 @@ export const getTripById = async (tripId: string, userId?: string) => {
           lastName: true,
           avatar: true
         }
+      },
+      sharedWith: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              avatar: true
+            }
+          }
+        }
       }
     }
   });
@@ -124,8 +177,11 @@ export const getTripById = async (tripId: string, userId?: string) => {
     throw new Error('Trip not found');
   }
 
-  // Check access
-  if (!trip.isPublic && trip.userId !== userId) {
+  // Check access - owner, shared user, or public
+  const isOwner = trip.userId === userId;
+  const isShared = trip.sharedWith.some(st => st.userId === userId);
+  
+  if (!trip.isPublic && !isOwner && !isShared) {
     throw new Error('Access denied');
   }
 
@@ -140,16 +196,24 @@ export const updateTrip = async (
   userId: string,
   data: UpdateTripData
 ) => {
-  // Verify ownership
+  // Verify ownership or shared edit permission
   const existing = await prisma.trip.findUnique({
-    where: { id: tripId }
+    where: { id: tripId },
+    include: {
+      sharedWith: {
+        where: { userId }
+      }
+    }
   });
 
   if (!existing) {
     throw new Error('Trip not found');
   }
 
-  if (existing.userId !== userId) {
+  const isOwner = existing.userId === userId;
+  const hasEditPermission = existing.sharedWith.some(st => st.permission === 'EDIT');
+
+  if (!isOwner && !hasEditPermission) {
     throw new Error('Access denied');
   }
 
@@ -189,6 +253,116 @@ export const deleteTrip = async (tripId: string, userId: string) => {
   });
 
   return { message: 'Trip deleted successfully' };
+};
+
+/**
+ * Share trip with user by email
+ */
+export const shareTripWithUser = async (
+  tripId: string,
+  ownerId: string,
+  email: string,
+  permission: 'VIEW' | 'EDIT' = 'VIEW'
+) => {
+  // Verify ownership
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId }
+  });
+
+  if (!trip) {
+    throw new Error('Trip not found');
+  }
+
+  if (trip.userId !== ownerId) {
+    throw new Error('Access denied');
+  }
+
+  // Find user by email
+  const user = await prisma.user.findUnique({
+    where: { email }
+  });
+
+  if (!user) {
+    throw new Error('User not found with this email');
+  }
+
+  if (user.id === ownerId) {
+    throw new Error('Cannot share trip with yourself');
+  }
+
+  // Check if already shared
+  const existingShare = await prisma.sharedTrip.findUnique({
+    where: {
+      tripId_userId: {
+        tripId,
+        userId: user.id
+      }
+    }
+  });
+
+  if (existingShare) {
+    // Update permission if different
+    if (existingShare.permission !== permission) {
+      return await prisma.sharedTrip.update({
+        where: { id: existingShare.id },
+        data: { permission }
+      });
+    }
+    return existingShare;
+  }
+
+  // Create share
+  const sharedTrip = await prisma.sharedTrip.create({
+    data: {
+      tripId,
+      userId: user.id,
+      permission
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          avatar: true
+        }
+      }
+    }
+  });
+
+  return sharedTrip;
+};
+
+/**
+ * Remove shared access
+ */
+export const removeSharedAccess = async (
+  tripId: string,
+  ownerId: string,
+  sharedUserId: string
+) => {
+  // Verify ownership
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId }
+  });
+
+  if (!trip) {
+    throw new Error('Trip not found');
+  }
+
+  if (trip.userId !== ownerId) {
+    throw new Error('Access denied');
+  }
+
+  await prisma.sharedTrip.deleteMany({
+    where: {
+      tripId,
+      userId: sharedUserId
+    }
+  });
+
+  return { message: 'Access removed successfully' };
 };
 
 /**

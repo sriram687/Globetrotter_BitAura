@@ -9,6 +9,7 @@ import * as tripService from '../services/trip.service';
 import { authenticate, optionalAuth } from '../middleware/auth.middleware';
 import { createTripValidation, updateTripValidation, idParamValidation } from '../middleware/validation.middleware';
 import { sendSuccess, sendError, sendValidationError, sendNotFound } from '../utils/response.utils';
+import { prisma } from '../index';
 
 const router = Router();
 
@@ -46,7 +47,7 @@ router.post('/', authenticate, createTripValidation, async (req: Request, res: R
 
 /**
  * GET /api/trips
- * Get all trips for current user
+ * Get all trips for current user (including shared trips)
  */
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
@@ -186,6 +187,89 @@ router.post('/:id/share', authenticate, idParamValidation, async (req: Request, 
     return sendSuccess(res, result, 'Share link generated');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to generate share link';
+    return sendError(res, message);
+  }
+});
+
+/**
+ * POST /api/trips/:id/share-with-user
+ * Share trip with a user by email
+ */
+router.post('/:id/share-with-user', authenticate, idParamValidation, async (req: Request, res: Response) => {
+  try {
+    const { email, permission } = req.body;
+    
+    if (!email) {
+      return sendError(res, 'Email is required');
+    }
+
+    const permissionType = permission === 'EDIT' ? 'EDIT' : 'VIEW';
+    const result = await tripService.shareTripWithUser(
+      req.params.id,
+      req.user!.id,
+      email,
+      permissionType
+    );
+    
+    return sendSuccess(res, result, 'Trip shared successfully');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to share trip';
+    return sendError(res, message);
+  }
+});
+
+/**
+ * DELETE /api/trips/:id/share-with-user/:userId
+ * Remove shared access
+ */
+router.delete('/:id/share-with-user/:userId', authenticate, idParamValidation, async (req: Request, res: Response) => {
+  try {
+    const result = await tripService.removeSharedAccess(
+      req.params.id,
+      req.user!.id,
+      req.params.userId
+    );
+    return sendSuccess(res, result, 'Access removed successfully');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to remove access';
+    return sendError(res, message);
+  }
+});
+
+/**
+ * GET /api/trips/public
+ * Get public trips (for explore page)
+ */
+router.get('/public', optionalAuth, async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 20;
+    const page = parseInt(req.query.page as string) || 1;
+    
+    const trips = await prisma.trip.findMany({
+      where: {
+        isPublic: true,
+        shareToken: { not: null }
+      },
+      take: limit,
+      skip: (page - 1) * limit,
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            avatar: true
+          }
+        },
+        _count: {
+          select: { cities: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    return sendSuccess(res, trips);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to get public trips';
     return sendError(res, message);
   }
 });
